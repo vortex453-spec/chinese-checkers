@@ -778,8 +778,18 @@ var BOARD_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMC
 </script>
 <script>
 if('serviceWorker' in navigator && location.protocol!=='file:'){const had=!!navigator.serviceWorker.controller;let done=false;
- navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload();}});
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;try{sessionStorage.setItem('cc_swreload','1');}catch(e){}location.reload();}});
  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});}
+// hidden open counter (silent, never cached, ignored when offline; the auto-reload after an update is not counted)
+(function(){try{
+ var skip=false; try{ if(sessionStorage.getItem('cc_swreload')){ sessionStorage.removeItem('cc_swreload'); skip=true; } }catch(e){}
+ if(skip||!navigator.onLine||location.protocol==='file:')return;
+ const A='https://abacus.jasoncameron.dev/hit/vortex453-chinese-checkers/';
+ const hit=k=>fetch(A+k,{cache:'no-store',mode:'cors',credentials:'omit'});
+ hit('opens').catch(()=>{});
+ var counted=true; try{counted=!!localStorage.getItem('cc_counted');}catch(e){}
+ if(!counted)hit('installs').then(r=>{if(r.ok){try{localStorage.setItem('cc_counted','1');}catch(e){}}}).catch(()=>{});
+}catch(e){}})();
 </script>
 </body>
 </html>
