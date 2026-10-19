@@ -29,6 +29,8 @@
   button:disabled{background:#7a6a58;color:#4a3d30;cursor:default;box-shadow:none}
   button.col.on{border-color:#fff3c4;box-shadow:0 0 0 3px #fff3c4,0 3px 0 #1e130b;font-weight:800}
   button.col:not(.on){opacity:.75}
+  button:focus{outline:none}
+  button.lvl.locked,button.lvl.locked:hover{border-color:#1e130b !important;background:#7a6a58 !important;color:#4a3d30;cursor:not-allowed;box-shadow:none}
   button.lvl.on{background:#ffb84d;border-color:#fff3c4;box-shadow:0 0 0 3px #ffb84d,0 3px 0 #1e130b}
   #btnDone{background:#7fd37a}
   #btnDone:disabled{background:#7a6a58}
@@ -636,6 +638,7 @@ var BOARD_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMC
     S.last={player:HUMAN,path:path,before:before}; S.moves++;
     S.hist.push(CC.hash(S.board));
     if (!S.counted){ S.counted=true; Store.played(); }
+    S.locked=true;   // level is fixed from the player's first move until the game ends
     setMsg('');
     if (checkWin(HUMAN)) return;
     S.turn=CPU; update(); later(cpuTurn,350);
@@ -700,7 +703,7 @@ var BOARD_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMC
     S.gen=(S.gen||0)+1;
     timers.forEach(clearTimeout); timers=[];
     $('confirmBox').style.display='none';
-    S.board=CC.newBoard(); S.turn=CPU; S.moves=0; S.over=false; S.sel=null; S.anim=null; S.last=null; S.cpuPath=null; S.thinking=false; S.hist=[]; S.msg=''; S.counted=false; S._rec=0;
+    S.board=CC.newBoard(); S.turn=CPU; S.moves=0; S.over=false; S.sel=null; S.anim=null; S.last=null; S.cpuPath=null; S.thinking=false; S.hist=[]; S.msg=''; S.counted=false; S._rec=0; S.locked=false;
     $('banner').style.display='none';
     update(); later(cpuTurn,700);
   }
@@ -726,7 +729,7 @@ var BOARD_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMC
     var sc = cls==='you' ? COL[0].text : cls==='cpu' ? COL[1].text : '';
     st.style.borderColor=sc; st.style.boxShadow= sc ? '0 0 12px '+sc+'88' : '';
     document.querySelectorAll('.col').forEach(function(b){ b.classList.toggle('on', b.dataset.c===S.colour); });
-    $('info').innerHTML = 'Level: <b>'+S.level+'</b> &nbsp;·&nbsp; Moves: <b>'+S.moves+'</b>'+
+    $('info').innerHTML = 'Level: <b>'+S.level+'</b>'+(levelLocked()?' <span style="color:#ffe08a">(locked)</span>':'')+' &nbsp;·&nbsp; Moves: <b>'+S.moves+'</b>'+
       '<div>Balls home: You ('+me()+') <b style="color:'+COL[0].text+'">'+homeCount(HUMAN)+'</b>/10 &nbsp;·&nbsp; Computer ('+them()+') <b style="color:'+COL[1].text+'">'+homeCount(CPU)+'</b>/10</div>';
     $('msg').textContent = S.msg||'';
     var canAct = !busy() && !!S.sel;
@@ -734,7 +737,9 @@ var BOARD_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMC
     $('btnUndo').disabled = !(canAct && S.sel.path.length>1);
     $('btnCancel').disabled = !canAct;
     $('btnReplay').disabled = !S.last || !!S.anim || S.thinking || !!S.sel;
-    document.querySelectorAll('.lvl').forEach(function(b){ b.classList.toggle('on', b.dataset.l===S.level); });
+    var lk=levelLocked();
+    document.querySelectorAll('.lvl').forEach(function(b){ b.classList.toggle('on', b.dataset.l===S.level); b.classList.toggle('locked', lk && b.dataset.l!==S.level); b.setAttribute('aria-disabled', lk && b.dataset.l!==S.level ? 'true':'false'); });
+    $('lvlNote').textContent='';
     var t=getTally(), rows='';
     CC.LEVELS.forEach(function(l){ var x=t[l]||{you:0,cpu:0}; rows+='<div class="row"'+(l===S.level?' style="color:#ffe08a"':'')+'><span>'+l+'</span><span><b>'+x.you+'</b>–<b>'+x.cpu+'</b></span></div>'; });
     $('tally').innerHTML='<div class="row"><b>Wins (You – Computer)</b><span>Games played: <b>'+(Store.data.played|0)+'</b></span></div><div class="lv">'+rows+'</div>'+
@@ -765,9 +770,17 @@ var BOARD_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMC
     setColour(c);
   }; });
   $('bannerNew').onclick=newGame;
+  function levelLocked(){ return !!S.locked && !S.over; }
+  var hintTimer=null;
   document.querySelectorAll('.lvl').forEach(function(b){ b.onclick=function(){
+    if (levelLocked()){
+      if (b.dataset.l!==S.level){
+        var prev=S.msg; setMsg('Level is locked – press New Game to change level.'); update();
+        clearTimeout(hintTimer); hintTimer=setTimeout(function(){ if (S.msg==='Level is locked – press New Game to change level.'){ setMsg(''); update(); } },3000);
+      }
+      return;
+    }
     S.level=b.dataset.l; Store.setLevel(S.level);
-    $('lvlNote').textContent = S.moves>0 && !S.over ? 'Level changed – it applies from the computer\'s next move.' : '';
     update(); }; });
 
   // test hook: #autotest=N plays N quick moves (both sides by computer) for screenshots
